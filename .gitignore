@@ -1,0 +1,34 @@
+# ── Entorno ──────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Node.js ──────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ── Frontend (Vite build) ─────────────────────────────────
+frontend/dist/
+frontend/.vite/
+
+# ── Reportes generados ────────────────────────────────────
+reports-service/exports/
+*.xlsx
+*.xls
+
+# ── Sistema operativo ─────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editores ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user

@@ -3,7 +3,8 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../../config/database');
 const { jwt: jwtConfig } = require('../../config/env');
 
-async function register({ name, email, password, role = 'member' }) {
+async function register({ name, email, password }) {
+  const role = 'member';
   const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
 
   if (existing.recordset.length > 0) {

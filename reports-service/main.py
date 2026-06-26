@@ -1,8 +1,19 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.database import init_pool
 from app.routes.reports import router as reports_router
 
-app = FastAPI(title="Reports Service", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_pool()
+    print("✅ Pool de conexiones PostgreSQL inicializado")
+    yield
+    print("🔌 Servidor detenido")
+
+
+app = FastAPI(title="Reports Service", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

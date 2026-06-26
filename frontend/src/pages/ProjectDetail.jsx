@@ -17,6 +17,8 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [taskError, setTaskError] = useState('');
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskForm, setTaskForm] = useState({ title: '', description: '', priority: 'medium', status: 'todo' });
 
@@ -24,27 +26,40 @@ export default function ProjectDetail() {
     Promise.all([
       api.get(`/projects/${id}`),
       api.get(`/tasks?project_id=${id}`),
-    ]).then(([projRes, taskRes]) => {
-      setProject(projRes.data.data);
-      setTasks(taskRes.data.data);
-      setLoading(false);
-    });
+    ])
+      .then(([projRes, taskRes]) => {
+        setProject(projRes.data.data);
+        setTasks(taskRes.data.data);
+      })
+      .catch(() => setError('No se pudo cargar el proyecto.'))
+      .finally(() => setLoading(false));
   }, [id]);
 
   async function handleCreateTask(e) {
     e.preventDefault();
-    const { data } = await api.post('/tasks', { ...taskForm, project_id: parseInt(id) });
-    setTasks([data.data, ...tasks]);
-    setShowTaskForm(false);
-    setTaskForm({ title: '', description: '', priority: 'medium', status: 'todo' });
+    setTaskError('');
+    try {
+      const { data } = await api.post('/tasks', { ...taskForm, project_id: parseInt(id) });
+      setTasks([data.data, ...tasks]);
+      setShowTaskForm(false);
+      setTaskForm({ title: '', description: '', priority: 'medium', status: 'todo' });
+    } catch (err) {
+      setTaskError(err.response?.data?.message || 'Error al crear la tarea.');
+    }
   }
 
   async function handleStatusChange(task, newStatus) {
-    await api.put(`/tasks/${task.id}`, { ...task, status: newStatus });
-    setTasks(tasks.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)));
+    try {
+      await api.put(`/tasks/${task.id}`, { ...task, status: newStatus });
+      setTasks(tasks.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)));
+    } catch {
+      // revierte visualmente si falla
+      setTasks((prev) => [...prev]);
+    }
   }
 
   if (loading) return <div className="min-h-screen bg-gray-50"><Navbar /><p className="p-8 text-gray-500">Cargando...</p></div>;
+  if (error || !project) return <div className="min-h-screen bg-gray-50"><Navbar /><p className="p-8 text-red-500">{error || 'Proyecto no encontrado.'}</p></div>;
 
   const total = tasks.length;
   const completed = tasks.filter((t) => t.status === 'done').length;
@@ -91,6 +106,7 @@ export default function ProjectDetail() {
         {showTaskForm && (
           <form onSubmit={handleCreateTask} className="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-3">
             <h2 className="font-semibold text-gray-800">Nueva tarea</h2>
+            {taskError && <p className="text-red-500 text-sm">{taskError}</p>}
             <input
               required
               placeholder="Título de la tarea"

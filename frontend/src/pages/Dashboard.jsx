@@ -17,22 +17,29 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', priority: 'medium' });
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
-    api.get('/projects').then(({ data }) => {
-      setProjects(data.data);
-      setLoading(false);
-    });
+    api.get('/projects')
+      .then(({ data }) => setProjects(data.data))
+      .catch(() => setError('No se pudieron cargar los proyectos.'))
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleCreate(e) {
     e.preventDefault();
-    const { data } = await api.post('/projects', form);
-    setProjects([data.data, ...projects]);
-    setShowForm(false);
-    setForm({ name: '', description: '', priority: 'medium' });
+    setFormError('');
+    try {
+      const { data } = await api.post('/projects', form);
+      setProjects([data.data, ...projects]);
+      setShowForm(false);
+      setForm({ name: '', description: '', priority: 'medium' });
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'Error al crear el proyecto.');
+    }
   }
 
   return (
@@ -54,6 +61,7 @@ export default function Dashboard() {
         {showForm && (
           <form onSubmit={handleCreate} className="bg-white rounded-xl border border-gray-200 p-6 mb-6 space-y-4">
             <h2 className="font-semibold text-gray-800">Nuevo proyecto</h2>
+            {formError && <p className="text-red-500 text-sm">{formError}</p>}
             <input
               required
               placeholder="Nombre del proyecto"
@@ -90,6 +98,8 @@ export default function Dashboard() {
 
         {loading ? (
           <p className="text-gray-500 text-sm">Cargando proyectos...</p>
+        ) : error ? (
+          <p className="text-red-500 text-sm">{error}</p>
         ) : projects.length === 0 ? (
           <p className="text-gray-500 text-sm">No tienes proyectos aún.</p>
         ) : (

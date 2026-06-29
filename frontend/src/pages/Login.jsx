@@ -24,53 +24,64 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full max-w-md p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Iniciar sesión</h1>
-        <p className="text-sm text-gray-500 mb-6">Bienvenido de vuelta</p>
+    <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Glows de fondo */}
+      <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -right-32 w-96 h-96 bg-violet-600/20 rounded-full blur-3xl" />
 
-        {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">
-            {error}
+      <div className="relative w-full max-w-md">
+        <div className="flex items-center justify-center gap-2.5 mb-6">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+            </svg>
           </div>
-        )}
+          <span className="font-bold text-lg text-white tracking-tight">ProjectManager</span>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="tu@email.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-            <input
-              type="password"
-              required
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="••••••••"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Entrando...' : 'Iniciar sesión'}
-          </button>
-        </form>
+        <div className="card p-8 shadow-2xl shadow-black/40">
+          <h1 className="text-2xl font-bold text-white mb-1">Iniciar sesión</h1>
+          <p className="text-sm text-slate-400 mb-6">Bienvenido de vuelta 👋</p>
 
-        <p className="text-sm text-center text-gray-500 mt-4">
-          ¿No tienes cuenta?{' '}
-          <Link to="/register" className="text-indigo-600 hover:underline">Regístrate</Link>
-        </p>
+          {error && (
+            <div className="bg-red-500/10 text-red-300 text-sm p-3 rounded-lg mb-4 border border-red-500/20">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="label">Email</label>
+              <input
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="input"
+                placeholder="tu@email.com"
+              />
+            </div>
+            <div>
+              <label className="label">Contraseña</label>
+              <input
+                type="password"
+                required
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="input"
+                placeholder="••••••••"
+              />
+            </div>
+            <button type="submit" disabled={loading} className="btn-primary w-full py-2.5">
+              {loading ? 'Entrando…' : 'Iniciar sesión'}
+            </button>
+          </form>
+
+          <p className="text-sm text-center text-slate-400 mt-5">
+            ¿No tienes cuenta?{' '}
+            <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">Regístrate</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

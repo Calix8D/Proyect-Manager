@@ -2,14 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0b0e14;
+    color: #e2e8f0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Scrollbar oscura */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a3344; border-radius: 9999px; border: 2px solid #0b0e14; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4658; }
 }
 
-body {
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f9fafb;
-  color: #111827;
+@layer components {
+  .card {
+    @apply bg-[#141a24] border border-white/[0.06] rounded-2xl;
+  }
+
+  .input {
+    @apply w-full bg-[#0f1520] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100
+           placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50
+           focus:border-indigo-500/50 transition;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-slate-300 mb-1.5;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium px-4 py-2
+           transition-colors bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium px-4 py-2
+           transition-colors bg-white/5 text-slate-200 border border-white/10 hover:bg-white/10
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
 }

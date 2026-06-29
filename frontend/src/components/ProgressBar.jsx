@@ -1,13 +1,13 @@
-export default function ProgressBar({ percent = 0 }) {
+export default function ProgressBar({ percent = 0, showLabel = true }) {
   return (
     <div>
-      <div className="w-full bg-gray-200 rounded-full h-2">
+      <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
         <div
-          className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+          className="bg-gradient-to-r from-indigo-500 to-violet-500 h-2 rounded-full transition-all duration-500"
           style={{ width: `${Math.min(percent, 100)}%` }}
         />
       </div>
-      <p className="text-xs text-gray-500 mt-1">{percent}% completado</p>
+      {showLabel && <p className="text-xs text-slate-400 mt-1.5">{percent}% completado</p>}
     </div>
   );
 }

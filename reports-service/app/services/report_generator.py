@@ -3,6 +3,19 @@ import pandas as pd
 from app.database import get_connection
 
 
+def user_can_access_project(project_id: int, user_id: int, user_role: str) -> bool:
+    """True si el usuario es miembro del proyecto (o admin global)."""
+    if user_role == "admin":
+        return True
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM project_members WHERE project_id = %s AND user_id = %s",
+                (project_id, user_id),
+            )
+            return cur.fetchone() is not None
+
+
 def get_project_summary(project_id: int) -> dict | None:
     """Totales de tareas y % de avance del proyecto."""
     with get_connection() as conn:

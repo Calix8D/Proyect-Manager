@@ -1,4 +1,5 @@
 const { query } = require('../../config/database');
+const { assertProjectMember } = require('../../utils/access');
 
 async function createProject({ name, description, status, priority, start_date, end_date }, ownerId) {
   const result = await query(
@@ -35,7 +36,9 @@ async function listProjects(userId) {
   return result.recordset;
 }
 
-async function getProjectById(projectId) {
+async function getProjectById(projectId, userId, userRole) {
+  await assertProjectMember(projectId, userId, userRole);
+
   const projectResult = await query(
     `SELECT p.*, u.name AS owner_name,
             COUNT(t.id) AS total_tasks,
@@ -67,8 +70,8 @@ async function getProjectById(projectId) {
   return project;
 }
 
-async function updateProject(projectId, data, userId) {
-  await assertOwnerOrAdmin(projectId, userId);
+async function updateProject(projectId, data, userId, userRole) {
+  await assertOwnerOrAdmin(projectId, userId, userRole);
 
   const result = await query(
     `UPDATE projects
@@ -87,8 +90,8 @@ async function deleteProject(projectId, userId, userRole) {
   await query('DELETE FROM projects WHERE id = $1', [projectId]);
 }
 
-async function addMember(projectId, targetUserId, role = 'member', requesterId) {
-  await assertOwnerOrAdmin(projectId, requesterId);
+async function addMember(projectId, targetUserId, role = 'member', requesterId, requesterRole) {
+  await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
 
   const existing = await query(
     'SELECT id FROM project_members WHERE project_id = $1 AND user_id = $2',
@@ -108,8 +111,8 @@ async function addMember(projectId, targetUserId, role = 'member', requesterId) 
   return result.recordset[0];
 }
 
-async function removeMember(projectId, targetUserId, requesterId) {
-  await assertOwnerOrAdmin(projectId, requesterId);
+async function removeMember(projectId, targetUserId, requesterId, requesterRole) {
+  await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
   await query(
     'DELETE FROM project_members WHERE project_id = $1 AND user_id = $2',
     [projectId, targetUserId]

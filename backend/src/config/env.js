@@ -27,4 +27,10 @@ module.exports = {
   },
 
   reportsServiceUrl: process.env.REPORTS_SERVICE_URL || 'http://localhost:8000',
+
+  // Orígenes permitidos para CORS (lista separada por comas en CORS_ORIGINS)
+  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
 };

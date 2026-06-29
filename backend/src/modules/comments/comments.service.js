@@ -1,6 +1,10 @@
 const { query } = require('../../config/database');
+const { assertProjectMember, getTaskProjectId } = require('../../utils/access');
 
-async function addComment({ task_id, content }, userId) {
+async function addComment({ task_id, content }, userId, userRole) {
+  const projectId = await getTaskProjectId(task_id);
+  await assertProjectMember(projectId, userId, userRole);
+
   const result = await query(
     `INSERT INTO comments (task_id, user_id, content)
      VALUES ($1, $2, $3)
@@ -11,7 +15,10 @@ async function addComment({ task_id, content }, userId) {
   return result.recordset[0];
 }
 
-async function listComments(taskId) {
+async function listComments(taskId, userId, userRole) {
+  const projectId = await getTaskProjectId(taskId);
+  await assertProjectMember(projectId, userId, userRole);
+
   const result = await query(
     `SELECT c.*, u.name AS author_name, u.avatar_url AS author_avatar
      FROM comments c

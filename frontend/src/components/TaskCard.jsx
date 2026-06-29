@@ -22,10 +22,6 @@ export default function TaskCard({ task, onClick }) {
           </span>
         )}
       </div>
-
-      {task.assignees && (
-        <p className="text-xs text-gray-400 mt-2 truncate">{task.assignees}</p>
-      )}
     </div>
   );
 }

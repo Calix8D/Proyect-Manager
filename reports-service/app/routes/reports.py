@@ -6,13 +6,21 @@ from app.services.report_generator import (
     get_project_workload,
     get_overdue_tasks,
     export_project_excel,
+    user_can_access_project,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
+def require_project_access(project_id: int, user: dict = Depends(verify_token)) -> dict:
+    """Verifica el token y que el usuario tenga acceso al proyecto de la ruta."""
+    if not user_can_access_project(project_id, user.get("id"), user.get("role")):
+        raise HTTPException(status_code=403, detail="No tienes acceso a este proyecto")
+    return user
+
+
 @router.get("/project/{project_id}/summary")
-def summary(project_id: int, _user: dict = Depends(verify_token)):
+def summary(project_id: int, _user: dict = Depends(require_project_access)):
     """Resumen de avance: totales por estado y % completado."""
     try:
         data = get_project_summary(project_id)
@@ -26,7 +34,7 @@ def summary(project_id: int, _user: dict = Depends(verify_token)):
 
 
 @router.get("/project/{project_id}/workload")
-def workload(project_id: int, _user: dict = Depends(verify_token)):
+def workload(project_id: int, _user: dict = Depends(require_project_access)):
     """Carga de trabajo por miembro del proyecto."""
     try:
         data = get_project_workload(project_id)
@@ -36,7 +44,7 @@ def workload(project_id: int, _user: dict = Depends(verify_token)):
 
 
 @router.get("/project/{project_id}/overdue")
-def overdue(project_id: int, _user: dict = Depends(verify_token)):
+def overdue(project_id: int, _user: dict = Depends(require_project_access)):
     """Tareas vencidas: fecha límite pasada y sin completar."""
     try:
         data = get_overdue_tasks(project_id)
@@ -46,7 +54,7 @@ def overdue(project_id: int, _user: dict = Depends(verify_token)):
 
 
 @router.get("/project/{project_id}/export")
-def export_excel(project_id: int, _user: dict = Depends(verify_token)):
+def export_excel(project_id: int, _user: dict = Depends(require_project_access)):
     """Descarga un .xlsx con todas las tareas del proyecto."""
     try:
         file_bytes, project_name = export_project_excel(project_id)

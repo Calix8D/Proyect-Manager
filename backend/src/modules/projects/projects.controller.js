@@ -20,7 +20,7 @@ async function list(req, res) {
 
 async function getById(req, res) {
   try {
-    const project = await service.getProjectById(parseInt(req.params.id), req.user.id);
+    const project = await service.getProjectById(parseInt(req.params.id), req.user.id, req.user.role);
     res.json({ success: true, data: project });
   } catch (err) {
     res.status(err.status || 500).json({ success: false, message: err.message });
@@ -29,7 +29,7 @@ async function getById(req, res) {
 
 async function update(req, res) {
   try {
-    const project = await service.updateProject(parseInt(req.params.id), req.body, req.user.id);
+    const project = await service.updateProject(parseInt(req.params.id), req.body, req.user.id, req.user.role);
     res.json({ success: true, data: project });
   } catch (err) {
     res.status(err.status || 500).json({ success: false, message: err.message });
@@ -48,7 +48,7 @@ async function remove(req, res) {
 async function addMember(req, res) {
   try {
     const { user_id, role } = req.body;
-    const member = await service.addMember(parseInt(req.params.id), user_id, role, req.user.id);
+    const member = await service.addMember(parseInt(req.params.id), user_id, role, req.user.id, req.user.role);
     res.status(201).json({ success: true, data: member });
   } catch (err) {
     res.status(err.status || 500).json({ success: false, message: err.message });
@@ -60,7 +60,8 @@ async function removeMember(req, res) {
     await service.removeMember(
       parseInt(req.params.id),
       parseInt(req.params.userId),
-      req.user.id
+      req.user.id,
+      req.user.role
     );
     res.json({ success: true, message: 'Miembro removido' });
   } catch (err) {

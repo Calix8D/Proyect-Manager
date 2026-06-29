@@ -4,6 +4,7 @@ import api from '../services/api';
 import Navbar from '../components/Navbar';
 import TaskCard from '../components/TaskCard';
 import ProgressBar from '../components/ProgressBar';
+import { useAuth } from '../context/AuthContext';
 
 const COLUMNS = [
   { key: 'todo',        label: 'Por hacer' },
@@ -14,8 +15,13 @@ const COLUMNS = [
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [addUserId, setAddUserId] = useState('');
+  const [memberError, setMemberError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [taskError, setTaskError] = useState('');
@@ -29,11 +35,51 @@ export default function ProjectDetail() {
     ])
       .then(([projRes, taskRes]) => {
         setProject(projRes.data.data);
+        setMembers(projRes.data.data.members || []);
         setTasks(taskRes.data.data);
       })
       .catch(() => setError('No se pudo cargar el proyecto.'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Solo el admin o el dueño del proyecto pueden gestionar miembros.
+  const canManage = user?.role === 'admin' || project?.owner_id === user?.id;
+
+  // Carga el directorio de usuarios cuando el gestor lo necesita.
+  useEffect(() => {
+    if (!canManage) return;
+    api.get('/users').then(({ data }) => setUsers(data.data)).catch(() => {});
+  }, [canManage]);
+
+  async function handleAddMember(e) {
+    e.preventDefault();
+    setMemberError('');
+    if (!addUserId) return;
+    try {
+      const { data } = await api.post(`/projects/${id}/members`, {
+        user_id: parseInt(addUserId),
+        role: 'member',
+      });
+      const u = users.find((x) => x.id === parseInt(addUserId));
+      setMembers([
+        ...members,
+        { id: u.id, name: u.name, email: u.email, avatar_url: u.avatar_url, role: data.data.role, joined_at: data.data.joined_at },
+      ]);
+      setAddUserId('');
+    } catch (err) {
+      setMemberError(err.response?.data?.message || 'No se pudo agregar el miembro.');
+    }
+  }
+
+  async function handleRemoveMember(userId) {
+    setMemberError('');
+    try {
+      await api.delete(`/projects/${id}/members/${userId}`);
+      setMembers(members.filter((m) => m.id !== userId));
+    } catch (err) {
+      setMemberError(err.response?.data?.message || 'No se pudo quitar el miembro.');
+    }
+  }
 
   async function handleCreateTask(e) {
     e.preventDefault();
@@ -55,6 +101,35 @@ export default function ProjectDetail() {
     } catch {
       // revierte visualmente si falla
       setTasks((prev) => [...prev]);
+    }
+  }
+
+  const memberName = (uid) => members.find((m) => m.id === uid)?.name || '—';
+
+  // Reconstruye los campos de asignados de una tarea a partir de los IDs.
+  const withAssignees = (task, ids) => ({
+    ...task,
+    assignee_ids: ids,
+    assignees: ids.map(memberName).filter((n) => n !== '—').join(', '),
+  });
+
+  async function handleAssign(task, userId) {
+    try {
+      await api.post(`/tasks/${task.id}/assign`, { user_id: userId });
+      const ids = [...(task.assignee_ids || []), userId];
+      setTasks(tasks.map((t) => (t.id === task.id ? withAssignees(t, ids) : t)));
+    } catch {
+      // ignora si ya estaba asignado o falla
+    }
+  }
+
+  async function handleUnassign(task, userId) {
+    try {
+      await api.delete(`/tasks/${task.id}/assign/${userId}`);
+      const ids = (task.assignee_ids || []).filter((id) => id !== userId);
+      setTasks(tasks.map((t) => (t.id === task.id ? withAssignees(t, ids) : t)));
+    } catch {
+      // ignora si falla
     }
   }
 
@@ -97,9 +172,58 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-6 mb-3">
             <span className="text-sm text-gray-600">{total} tareas totales</span>
             <span className="text-sm text-gray-600">{completed} completadas</span>
-            <span className="text-sm text-gray-600">{project.members?.length || 0} miembros</span>
+            <span className="text-sm text-gray-600">{members.length} miembros</span>
           </div>
           <ProgressBar percent={progress} />
+        </div>
+
+        {/* Miembros del proyecto */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+          <h2 className="font-semibold text-gray-800 mb-3">Miembros</h2>
+          {memberError && <p className="text-red-500 text-sm mb-2">{memberError}</p>}
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {members.length === 0 && <p className="text-sm text-gray-400">Aún no hay miembros.</p>}
+            {members.map((m) => (
+              <span key={m.id} className="inline-flex items-center gap-2 bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-full">
+                {m.name}
+                <span className="text-gray-400">· {m.role}</span>
+                {canManage && m.id !== project.owner_id && (
+                  <button
+                    onClick={() => handleRemoveMember(m.id)}
+                    className="text-gray-400 hover:text-red-500"
+                    title="Quitar del proyecto"
+                  >
+                    ✕
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+
+          {canManage && (
+            <form onSubmit={handleAddMember} className="flex gap-2">
+              <select
+                value={addUserId}
+                onChange={(e) => setAddUserId(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Agregar miembro…</option>
+                {users
+                  .filter((u) => !members.some((m) => m.id === u.id))
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                  ))}
+              </select>
+              <button
+                type="submit"
+                disabled={!addUserId}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Agregar
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Formulario nueva tarea */}
@@ -159,18 +283,52 @@ export default function ProjectDetail() {
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {colTasks.map((task) => (
-                    <div key={task.id}>
-                      <TaskCard task={task} />
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task, e.target.value)}
-                        className="mt-1 w-full text-xs border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-500"
-                      >
-                        {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-                      </select>
-                    </div>
-                  ))}
+                  {colTasks.map((task) => {
+                    const assigned = task.assignee_ids || [];
+                    const available = members.filter((m) => !assigned.includes(m.id));
+                    return (
+                      <div key={task.id}>
+                        <TaskCard task={task} />
+
+                        {/* Asignados */}
+                        {assigned.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {assigned.map((uid) => (
+                              <span key={uid} className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded-full">
+                                {memberName(uid)}
+                                <button
+                                  onClick={() => handleUnassign(task, uid)}
+                                  className="hover:text-red-500"
+                                  title="Quitar asignación"
+                                >
+                                  ✕
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <select
+                          value={task.status}
+                          onChange={(e) => handleStatusChange(task, e.target.value)}
+                          className="mt-1 w-full text-xs border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-500"
+                        >
+                          {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                        </select>
+
+                        {available.length > 0 && (
+                          <select
+                            value=""
+                            onChange={(e) => e.target.value && handleAssign(task, parseInt(e.target.value))}
+                            className="mt-1 w-full text-xs border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-500"
+                          >
+                            <option value="">+ Asignar miembro…</option>
+                            {available.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

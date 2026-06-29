@@ -1,6 +1,9 @@
 const { query } = require('../../config/database');
+const { assertProjectMember, getTaskProjectId } = require('../../utils/access');
 
-async function createTask({ project_id, title, description, status, priority, due_date }, userId) {
+async function createTask({ project_id, title, description, status, priority, due_date }, userId, userRole) {
+  await assertProjectMember(project_id, userId, userRole);
+
   const result = await query(
     `INSERT INTO tasks (project_id, title, description, status, priority, due_date, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -11,10 +14,13 @@ async function createTask({ project_id, title, description, status, priority, du
   return result.recordset[0];
 }
 
-async function listTasks(projectId) {
+async function listTasks(projectId, userId, userRole) {
+  await assertProjectMember(projectId, userId, userRole);
+
   const result = await query(
     `SELECT t.*, u.name AS created_by_name,
-            STRING_AGG(us.name, ', ') AS assignees
+            STRING_AGG(us.name, ', ') AS assignees,
+            ARRAY_AGG(us.id) FILTER (WHERE us.id IS NOT NULL) AS assignee_ids
      FROM tasks t
      LEFT JOIN users u ON u.id = t.created_by
      LEFT JOIN task_assignments ta ON ta.task_id = t.id
@@ -28,7 +34,10 @@ async function listTasks(projectId) {
   return result.recordset;
 }
 
-async function getTaskById(taskId) {
+async function getTaskById(taskId, userId, userRole) {
+  const projectId = await getTaskProjectId(taskId);
+  await assertProjectMember(projectId, userId, userRole);
+
   const taskResult = await query(
     `SELECT t.*, u.name AS created_by_name
      FROM tasks t
@@ -36,8 +45,6 @@ async function getTaskById(taskId) {
      WHERE t.id = $1`,
     [taskId]
   );
-
-  if (!taskResult.recordset[0]) throw { status: 404, message: 'Tarea no encontrada' };
 
   const assigneesResult = await query(
     `SELECT u.id, u.name, u.email, u.avatar_url, ta.assigned_at
@@ -52,7 +59,10 @@ async function getTaskById(taskId) {
   return task;
 }
 
-async function updateTask(taskId, data) {
+async function updateTask(taskId, data, userId, userRole) {
+  const projectId = await getTaskProjectId(taskId);
+  await assertProjectMember(projectId, userId, userRole);
+
   const result = await query(
     `UPDATE tasks
      SET title = $1, description = $2, status = $3,
@@ -62,16 +72,20 @@ async function updateTask(taskId, data) {
     [data.title, data.description || null, data.status, data.priority, data.due_date || null, taskId]
   );
 
-  if (!result.recordset[0]) throw { status: 404, message: 'Tarea no encontrada' };
-
   return result.recordset[0];
 }
 
-async function deleteTask(taskId) {
+async function deleteTask(taskId, userId, userRole) {
+  const projectId = await getTaskProjectId(taskId);
+  await assertProjectMember(projectId, userId, userRole);
+
   await query('DELETE FROM tasks WHERE id = $1', [taskId]);
 }
 
-async function assignUser(taskId, targetUserId) {
+async function assignUser(taskId, targetUserId, userId, userRole) {
+  const projectId = await getTaskProjectId(taskId);
+  await assertProjectMember(projectId, userId, userRole);
+
   const existing = await query(
     'SELECT id FROM task_assignments WHERE task_id = $1 AND user_id = $2',
     [taskId, targetUserId]
@@ -89,7 +103,10 @@ async function assignUser(taskId, targetUserId) {
   return result.recordset[0];
 }
 
-async function unassignUser(taskId, targetUserId) {
+async function unassignUser(taskId, targetUserId, userId, userRole) {
+  const projectId = await getTaskProjectId(taskId);
+  await assertProjectMember(projectId, userId, userRole);
+
   await query(
     'DELETE FROM task_assignments WHERE task_id = $1 AND user_id = $2',
     [taskId, targetUserId]

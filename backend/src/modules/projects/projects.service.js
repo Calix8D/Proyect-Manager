@@ -119,6 +119,29 @@ async function removeMember(projectId, targetUserId, requesterId, requesterRole)
   );
 }
 
+async function updateMemberRole(projectId, targetUserId, role, requesterId, requesterRole) {
+  await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
+
+  // El dueño del proyecto debe permanecer como 'leader' — evita que se quede sin control.
+  const project = await query('SELECT owner_id FROM projects WHERE id = $1', [projectId]);
+  if (project.recordset[0]?.owner_id === targetUserId) {
+    throw { status: 400, message: 'No puedes cambiar el rol del dueño del proyecto' };
+  }
+
+  const result = await query(
+    `UPDATE project_members SET role = $1
+     WHERE project_id = $2 AND user_id = $3
+     RETURNING *`,
+    [role, projectId, targetUserId]
+  );
+
+  if (!result.recordset[0]) {
+    throw { status: 404, message: 'El usuario no es miembro del proyecto' };
+  }
+
+  return result.recordset[0];
+}
+
 async function assertOwnerOrAdmin(projectId, userId, userRole) {
   const result = await query('SELECT owner_id FROM projects WHERE id = $1', [projectId]);
 
@@ -132,4 +155,4 @@ async function assertOwnerOrAdmin(projectId, userId, userRole) {
   }
 }
 
-module.exports = { createProject, listProjects, getProjectById, updateProject, deleteProject, addMember, removeMember };
+module.exports = { createProject, listProjects, getProjectById, updateProject, deleteProject, addMember, removeMember, updateMemberRole };

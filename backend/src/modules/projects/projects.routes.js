@@ -28,6 +28,7 @@ router.get('/:id',                        controller.getById);
 router.put('/:id',                        validate(projectSchema), controller.update);
 router.delete('/:id',                     controller.remove);
 router.post('/:id/members',               validate(memberSchema), controller.addMember);
+router.patch('/:id/members/:userId',      validate({ role: { required: true, type: 'string', enum: ['leader', 'member', 'viewer'] } }), controller.updateMemberRole);
 router.delete('/:id/members/:userId',     controller.removeMember);
 
 module.exports = router;

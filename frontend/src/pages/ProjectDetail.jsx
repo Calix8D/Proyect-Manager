@@ -15,6 +15,8 @@ const COLUMNS = [
 
 const cardSelect = 'mt-1 w-full text-xs bg-[#0f1520] border border-white/10 rounded px-1.5 py-1 text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500/50';
 
+const ROLE_LABELS = { leader: 'Líder', member: 'Miembro', viewer: 'Solo lectura' };
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -23,6 +25,7 @@ export default function ProjectDetail() {
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState([]);
   const [addUserId, setAddUserId] = useState('');
+  const [addRole, setAddRole] = useState('member');
   const [memberError, setMemberError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,7 +69,7 @@ export default function ProjectDetail() {
     try {
       const { data } = await api.post(`/projects/${id}/members`, {
         user_id: parseInt(addUserId),
-        role: 'member',
+        role: addRole,
       });
       const u = users.find((x) => x.id === parseInt(addUserId));
       setMembers([
@@ -74,6 +77,7 @@ export default function ProjectDetail() {
         { id: u.id, name: u.name, email: u.email, avatar_url: u.avatar_url, role: data.data.role, joined_at: data.data.joined_at },
       ]);
       setAddUserId('');
+      setAddRole('member');
     } catch (err) {
       setMemberError(err.response?.data?.message || 'No se pudo agregar el miembro.');
     }
@@ -86,6 +90,16 @@ export default function ProjectDetail() {
       setMembers(members.filter((m) => m.id !== userId));
     } catch (err) {
       setMemberError(err.response?.data?.message || 'No se pudo quitar el miembro.');
+    }
+  }
+
+  async function handleChangeRole(userId, role) {
+    setMemberError('');
+    try {
+      await api.patch(`/projects/${id}/members/${userId}`, { role });
+      setMembers(members.map((m) => (m.id === userId ? { ...m, role } : m)));
+    } catch (err) {
+      setMemberError(err.response?.data?.message || 'No se pudo cambiar el rol.');
     }
   }
 
@@ -208,6 +222,17 @@ export default function ProjectDetail() {
   if (loading) return <Layout><p className="text-slate-400">Cargando…</p></Layout>;
   if (error || !project) return <Layout><p className="text-red-300">{error || 'Proyecto no encontrado.'}</p></Layout>;
 
+  // Rol efectivo del usuario dentro del proyecto → define qué acciones puede realizar.
+  // Un admin global se trata como 'leader'. viewer = solo lectura.
+  const myProjectRole = user?.role === 'admin'
+    ? 'leader'
+    : members.find((m) => m.id === user?.id)?.role;
+  const canEdit = myProjectRole === 'leader' || myProjectRole === 'member';
+  const isViewer = !!myProjectRole && !canEdit;
+  // Asignar/desasignar a OTROS miembros es privilegio de líder/owner/admin.
+  // Un member solo puede autoasignarse (ver botón "Asignarme").
+  const canAssignOthers = myProjectRole === 'leader';
+
   const total = tasks.length;
   const completed = tasks.filter((t) => t.status === 'done').length;
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -218,7 +243,14 @@ export default function ProjectDetail() {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <Link to="/dashboard" className="text-xs text-slate-500 hover:text-slate-300">← Proyectos</Link>
-          <h1 className="text-2xl font-bold text-white mt-1">{project.name}</h1>
+          <h1 className="text-2xl font-bold text-white mt-1">
+            {project.name}
+            {isViewer && (
+              <span className="ml-2 align-middle text-[11px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-slate-400 ring-1 ring-white/10">
+                Solo lectura
+              </span>
+            )}
+          </h1>
           {project.description && <p className="text-sm text-slate-400 mt-1 max-w-2xl">{project.description}</p>}
         </div>
         <div className="flex gap-2">
@@ -226,9 +258,11 @@ export default function ProjectDetail() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
             Reportes
           </Link>
-          <button onClick={() => setShowTaskForm(!showTaskForm)} className="btn-primary">
-            <span className="text-base leading-none">+</span> Nueva tarea
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowTaskForm(!showTaskForm)} className="btn-primary">
+              <span className="text-base leading-none">+</span> Nueva tarea
+            </button>
+          )}
         </div>
       </div>
 
@@ -255,7 +289,20 @@ export default function ProjectDetail() {
                 {m.name?.[0]?.toUpperCase()}
               </span>
               {m.name}
-              <span className="text-slate-500">· {m.role}</span>
+              {canManage && m.id !== project.owner_id ? (
+                <select
+                  value={m.role}
+                  onChange={(e) => handleChangeRole(m.id, e.target.value)}
+                  className="bg-transparent text-slate-400 text-xs rounded px-1 py-0.5 border border-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 cursor-pointer"
+                  title="Cambiar rol"
+                >
+                  <option value="leader">Líder</option>
+                  <option value="member">Miembro</option>
+                  <option value="viewer">Solo lectura</option>
+                </select>
+              ) : (
+                <span className="text-slate-500">· {ROLE_LABELS[m.role] || m.role}</span>
+              )}
               {canManage && m.id !== project.owner_id && (
                 <button onClick={() => handleRemoveMember(m.id)} className="text-slate-500 hover:text-red-400" title="Quitar del proyecto">✕</button>
               )}
@@ -271,13 +318,18 @@ export default function ProjectDetail() {
                 <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
               ))}
             </select>
+            <select value={addRole} onChange={(e) => setAddRole(e.target.value)} className="input max-w-[160px]" title="Rol en el proyecto">
+              <option value="leader">Líder</option>
+              <option value="member">Miembro</option>
+              <option value="viewer">Solo lectura</option>
+            </select>
             <button type="submit" disabled={!addUserId} className="btn-primary">Agregar</button>
           </form>
         )}
       </div>
 
       {/* Formulario nueva tarea */}
-      {showTaskForm && (
+      {showTaskForm && canEdit && (
         <form onSubmit={handleCreateTask} className="card p-5 mb-6 space-y-3">
           <h2 className="font-semibold text-white">Nueva tarea</h2>
           {taskError && <p className="text-red-300 text-sm">{taskError}</p>}
@@ -328,21 +380,35 @@ export default function ProjectDetail() {
                           {assigned.map((uid) => (
                             <span key={uid} className="inline-flex items-center gap-1 bg-indigo-500/15 text-indigo-300 text-[10px] px-1.5 py-0.5 rounded-full">
                               {memberName(uid)}
-                              <button onClick={() => handleUnassign(task, uid)} className="hover:text-red-400" title="Quitar asignación">✕</button>
+                              {canEdit && (canAssignOthers || uid === user?.id) && (
+                                <button onClick={() => handleUnassign(task, uid)} className="hover:text-red-400" title="Quitar asignación">✕</button>
+                              )}
                             </span>
                           ))}
                         </div>
                       )}
 
-                      <select value={task.status} onChange={(e) => handleStatusChange(task, e.target.value)} className={cardSelect}>
-                        {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-                      </select>
+                      {canEdit && (
+                        <select value={task.status} onChange={(e) => handleStatusChange(task, e.target.value)} className={cardSelect}>
+                          {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                        </select>
+                      )}
 
-                      {available.length > 0 && (
+                      {canAssignOthers && available.length > 0 && (
                         <select value="" onChange={(e) => e.target.value && handleAssign(task, parseInt(e.target.value))} className={cardSelect}>
                           <option value="">+ Asignar miembro…</option>
                           {available.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                         </select>
+                      )}
+
+                      {!canAssignOthers && canEdit && !assigned.includes(user?.id) && (
+                        <button
+                          type="button"
+                          onClick={() => handleAssign(task, user.id)}
+                          className={cardSelect + ' text-left hover:text-indigo-300'}
+                        >
+                          + Asignarme
+                        </button>
                       )}
                     </div>
                   );
@@ -364,23 +430,25 @@ export default function ProjectDetail() {
             {modalError && <p className="text-red-300 text-sm mb-2">{modalError}</p>}
 
             <form onSubmit={handleUpdateTask} className="space-y-3">
-              <input required value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className="input" placeholder="Título" />
-              <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="input" placeholder="Descripción" />
+              <input required disabled={!canEdit} value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className="input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="Título" />
+              <textarea disabled={!canEdit} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="input disabled:opacity-60 disabled:cursor-not-allowed" placeholder="Descripción" />
               <div className="grid grid-cols-3 gap-2">
-                <select value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} className="input">
+                <select disabled={!canEdit} value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} className="input disabled:opacity-60 disabled:cursor-not-allowed">
                   <option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option>
                 </select>
-                <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="input">
+                <select disabled={!canEdit} value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="input disabled:opacity-60 disabled:cursor-not-allowed">
                   {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
-                <input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="input" />
+                <input type="date" disabled={!canEdit} value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="input disabled:opacity-60 disabled:cursor-not-allowed" />
               </div>
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary">Guardar</button>
-                <button type="button" onClick={handleDeleteTask} className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium px-4 py-2 transition-colors bg-transparent text-red-400 hover:bg-red-500/10">
-                  Eliminar tarea
-                </button>
-              </div>
+              {canEdit && (
+                <div className="flex gap-2">
+                  <button type="submit" className="btn-primary">Guardar</button>
+                  <button type="button" onClick={handleDeleteTask} className="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium px-4 py-2 transition-colors bg-transparent text-red-400 hover:bg-red-500/10">
+                    Eliminar tarea
+                  </button>
+                </div>
+              )}
             </form>
 
             {/* Comentarios */}
@@ -408,10 +476,14 @@ export default function ProjectDetail() {
                   </div>
                 ))}
               </div>
-              <form onSubmit={handleAddComment} className="flex gap-2">
-                <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Escribe un comentario…" className="input flex-1" />
-                <button type="submit" disabled={!newComment.trim()} className="btn-primary">Enviar</button>
-              </form>
+              {canEdit ? (
+                <form onSubmit={handleAddComment} className="flex gap-2">
+                  <input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Escribe un comentario…" className="input flex-1" />
+                  <button type="submit" disabled={!newComment.trim()} className="btn-primary">Enviar</button>
+                </form>
+              ) : (
+                <p className="text-xs text-slate-500">Tu rol es de solo lectura: no puedes comentar.</p>
+              )}
             </div>
           </div>
         </div>

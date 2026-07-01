@@ -1,8 +1,8 @@
 const { query } = require('../../config/database');
-const { assertProjectMember, getTaskProjectId } = require('../../utils/access');
+const { assertProjectMember, assertProjectRole, getTaskProjectId, PROJECT_ROLE_RANK } = require('../../utils/access');
 
 async function createTask({ project_id, title, description, status, priority, due_date }, userId, userRole) {
-  await assertProjectMember(project_id, userId, userRole);
+  await assertProjectRole(project_id, userId, userRole); // escritura: viewer no puede crear
 
   const result = await query(
     `INSERT INTO tasks (project_id, title, description, status, priority, due_date, created_by)
@@ -15,7 +15,7 @@ async function createTask({ project_id, title, description, status, priority, du
 }
 
 async function listTasks(projectId, userId, userRole) {
-  await assertProjectMember(projectId, userId, userRole);
+  await assertProjectMember(projectId, userId, userRole); // lectura
 
   const result = await query(
     `SELECT t.*, u.name AS created_by_name,
@@ -36,7 +36,7 @@ async function listTasks(projectId, userId, userRole) {
 
 async function getTaskById(taskId, userId, userRole) {
   const projectId = await getTaskProjectId(taskId);
-  await assertProjectMember(projectId, userId, userRole);
+  await assertProjectMember(projectId, userId, userRole); // lectura
 
   const taskResult = await query(
     `SELECT t.*, u.name AS created_by_name
@@ -61,7 +61,7 @@ async function getTaskById(taskId, userId, userRole) {
 
 async function updateTask(taskId, data, userId, userRole) {
   const projectId = await getTaskProjectId(taskId);
-  await assertProjectMember(projectId, userId, userRole);
+  await assertProjectRole(projectId, userId, userRole); // escritura: viewer no puede editar
 
   const result = await query(
     `UPDATE tasks
@@ -77,14 +77,19 @@ async function updateTask(taskId, data, userId, userRole) {
 
 async function deleteTask(taskId, userId, userRole) {
   const projectId = await getTaskProjectId(taskId);
-  await assertProjectMember(projectId, userId, userRole);
+  await assertProjectRole(projectId, userId, userRole); // escritura: viewer no puede borrar
 
   await query('DELETE FROM tasks WHERE id = $1', [taskId]);
 }
 
 async function assignUser(taskId, targetUserId, userId, userRole) {
   const projectId = await getTaskProjectId(taskId);
-  await assertProjectMember(projectId, userId, userRole);
+  const role = await assertProjectRole(projectId, userId, userRole); // viewer no puede asignar
+
+  // "Admin/líder asigna, miembro se autoasigna": un member solo puede asignarse a sí mismo.
+  if (targetUserId !== userId && PROJECT_ROLE_RANK[role] < PROJECT_ROLE_RANK.leader) {
+    throw { status: 403, message: 'Solo un líder o administrador puede asignar a otros miembros' };
+  }
 
   const existing = await query(
     'SELECT id FROM task_assignments WHERE task_id = $1 AND user_id = $2',
@@ -105,7 +110,12 @@ async function assignUser(taskId, targetUserId, userId, userRole) {
 
 async function unassignUser(taskId, targetUserId, userId, userRole) {
   const projectId = await getTaskProjectId(taskId);
-  await assertProjectMember(projectId, userId, userRole);
+  const role = await assertProjectRole(projectId, userId, userRole); // viewer no puede desasignar
+
+  // Un member solo puede quitarse a sí mismo; quitar a otros requiere líder/admin.
+  if (targetUserId !== userId && PROJECT_ROLE_RANK[role] < PROJECT_ROLE_RANK.leader) {
+    throw { status: 403, message: 'Solo un líder o administrador puede desasignar a otros miembros' };
+  }
 
   await query(
     'DELETE FROM task_assignments WHERE task_id = $1 AND user_id = $2',

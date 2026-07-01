@@ -2,6 +2,17 @@ import io
 import pandas as pd
 from app.database import get_connection
 
+# Caracteres con los que Excel/LibreOffice interpretan una celda como fórmula.
+_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_cell(value):
+    """Neutraliza inyección de fórmulas: si un texto empieza por un carácter
+    peligroso, se antepone un apóstrofo para que Excel lo trate como texto."""
+    if isinstance(value, str) and value and value[0] in _FORMULA_TRIGGERS:
+        return "'" + value
+    return value
+
 
 def user_can_access_project(project_id: int, user_id: int, user_role: str) -> bool:
     """True si el usuario es miembro del proyecto (o admin global)."""
@@ -145,6 +156,10 @@ def export_project_excel(project_id: int) -> tuple[bytes, str]:
 
     df = pd.DataFrame([dict(r) for r in rows])
     df.drop(columns=["id"], inplace=True, errors="ignore")
+
+    # Sanitiza las columnas de texto contra inyección de fórmulas antes de exportar.
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].map(_sanitize_cell)
 
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:

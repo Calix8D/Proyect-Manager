@@ -1,9 +1,9 @@
 const { query } = require('../../config/database');
-const { assertProjectMember, getTaskProjectId } = require('../../utils/access');
+const { assertProjectMember, assertProjectRole, getTaskProjectId } = require('../../utils/access');
 
 async function addComment({ task_id, content }, userId, userRole) {
   const projectId = await getTaskProjectId(task_id);
-  await assertProjectMember(projectId, userId, userRole);
+  await assertProjectRole(projectId, userId, userRole); // escritura: viewer no puede comentar
 
   const result = await query(
     `INSERT INTO comments (task_id, user_id, content)

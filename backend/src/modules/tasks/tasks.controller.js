@@ -1,11 +1,12 @@
 const service = require('./tasks.service');
+const { sendError } = require('../../utils/respond');
 
 async function create(req, res) {
   try {
     const task = await service.createTask(req.body, req.user.id, req.user.role);
     res.status(201).json({ success: true, data: task });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -18,7 +19,7 @@ async function list(req, res) {
     const tasks = await service.listTasks(parseInt(project_id), req.user.id, req.user.role);
     res.json({ success: true, data: tasks });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -27,7 +28,7 @@ async function getById(req, res) {
     const task = await service.getTaskById(parseInt(req.params.id), req.user.id, req.user.role);
     res.json({ success: true, data: task });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -36,7 +37,7 @@ async function update(req, res) {
     const task = await service.updateTask(parseInt(req.params.id), req.body, req.user.id, req.user.role);
     res.json({ success: true, data: task });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -45,7 +46,7 @@ async function remove(req, res) {
     await service.deleteTask(parseInt(req.params.id), req.user.id, req.user.role);
     res.json({ success: true, message: 'Tarea eliminada' });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -54,7 +55,7 @@ async function assign(req, res) {
     const result = await service.assignUser(parseInt(req.params.id), req.body.user_id, req.user.id, req.user.role);
     res.status(201).json({ success: true, data: result });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -63,7 +64,7 @@ async function unassign(req, res) {
     await service.unassignUser(parseInt(req.params.id), parseInt(req.params.userId), req.user.id, req.user.role);
     res.json({ success: true, message: 'Asignación removida' });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 

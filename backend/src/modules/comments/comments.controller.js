@@ -1,11 +1,12 @@
 const service = require('./comments.service');
+const { sendError } = require('../../utils/respond');
 
 async function add(req, res) {
   try {
     const comment = await service.addComment(req.body, req.user.id, req.user.role);
     res.status(201).json({ success: true, data: comment });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -18,7 +19,7 @@ async function list(req, res) {
     const comments = await service.listComments(parseInt(task_id), req.user.id, req.user.role);
     res.json({ success: true, data: comments });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 
@@ -27,7 +28,7 @@ async function remove(req, res) {
     await service.deleteComment(parseInt(req.params.id), req.user.id, req.user.role);
     res.json({ success: true, message: 'Comentario eliminado' });
   } catch (err) {
-    res.status(err.status || 500).json({ success: false, message: err.message });
+    sendError(res, err);
   }
 }
 

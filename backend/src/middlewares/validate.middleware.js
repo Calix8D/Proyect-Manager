@@ -35,6 +35,10 @@ function validateBody(schema) {
       if (rules.enum && !rules.enum.includes(value)) {
         errors.push(`${field} debe ser uno de: ${rules.enum.join(', ')}`);
       }
+      // Acepta 'YYYY-MM-DD' o un timestamp ISO ('YYYY-MM-DDT...').
+      if (rules.isDate && (!/^\d{4}-\d{2}-\d{2}($|T)/.test(String(value)) || Number.isNaN(Date.parse(value)))) {
+        errors.push(`${field} debe ser una fecha válida (YYYY-MM-DD)`);
+      }
     }
 
     if (errors.length > 0) {

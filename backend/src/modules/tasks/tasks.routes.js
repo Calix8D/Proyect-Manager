@@ -11,6 +11,7 @@ const createSchema = {
   description: { type: 'string' },
   status:      { type: 'string', enum: ['todo', 'in_progress', 'review', 'done'] },
   priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
+  due_date:    { isDate: true },
 };
 
 const updateSchema = {
@@ -18,6 +19,7 @@ const updateSchema = {
   description: { type: 'string' },
   status:      { type: 'string', enum: ['todo', 'in_progress', 'review', 'done'] },
   priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
+  due_date:    { isDate: true },
 };
 
 router.use(auth);

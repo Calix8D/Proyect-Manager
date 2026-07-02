@@ -15,6 +15,13 @@ const PRIORITY_COLORS = {
   low:    'bg-emerald-500/15 text-emerald-300',
 };
 
+// El servicio de reportes envía fechas como 'YYYY-MM-DD'; se formatea directo del
+// texto porque new Date('YYYY-MM-DD') asume UTC y puede mostrar el día anterior.
+const formatDate = (d) => {
+  const [y, m, day] = String(d).slice(0, 10).split('-');
+  return `${day}/${m}/${y}`;
+};
+
 const tooltipStyle = {
   backgroundColor: '#1a212e',
   border: '1px solid rgba(255,255,255,0.1)',
@@ -52,7 +59,8 @@ export default function Reports() {
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = res.headers['content-disposition']?.split('filename=')[1] ?? `reporte_${id}.xlsx`;
+      const match = res.headers['content-disposition']?.match(/filename="?([^";]+)"?/);
+      a.download = match?.[1] ?? `reporte_${id}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -173,7 +181,7 @@ export default function Reports() {
                         {task.priority}
                       </span>
                     </td>
-                    <td className="py-2.5 pr-4 text-red-400">{new Date(task.due_date).toLocaleDateString('es-ES')}</td>
+                    <td className="py-2.5 pr-4 text-red-400">{formatDate(task.due_date)}</td>
                     <td className="py-2.5 pr-4 text-slate-400 capitalize">{task.status.replace('_', ' ')}</td>
                     <td className="py-2.5 text-slate-500 truncate max-w-[150px]">{task.assignees || '—'}</td>
                   </tr>

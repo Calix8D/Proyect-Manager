@@ -11,6 +11,8 @@ const projectSchema = {
   description: { type: 'string' },
   status:      { type: 'string', enum: ['active', 'on_hold', 'completed', 'cancelled'] },
   priority:    { type: 'string', enum: ['low', 'medium', 'high'] },
+  start_date:  { isDate: true },
+  end_date:    { isDate: true },
 };
 
 const memberSchema = {

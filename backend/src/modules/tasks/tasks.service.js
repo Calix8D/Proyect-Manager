@@ -63,13 +63,15 @@ async function updateTask(taskId, data, userId, userRole) {
   const projectId = await getTaskProjectId(taskId);
   await assertProjectRole(projectId, userId, userRole); // escritura: viewer no puede editar
 
+  // COALESCE: si el cliente no envía status/priority se conserva el valor actual
+  // (son columnas NOT NULL; escribir null rompería con un 500).
   const result = await query(
     `UPDATE tasks
-     SET title = $1, description = $2, status = $3,
-         priority = $4, due_date = $5
+     SET title = $1, description = $2, status = COALESCE($3, status),
+         priority = COALESCE($4, priority), due_date = $5
      WHERE id = $6
      RETURNING *`,
-    [data.title, data.description || null, data.status, data.priority, data.due_date || null, taskId]
+    [data.title, data.description || null, data.status || null, data.priority || null, data.due_date || null, taskId]
   );
 
   return result.recordset[0];

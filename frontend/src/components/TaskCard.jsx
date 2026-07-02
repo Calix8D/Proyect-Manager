@@ -6,7 +6,11 @@ const PRIORITY = {
 
 export default function TaskCard({ task, onClick }) {
   const p = PRIORITY[task.priority] || PRIORITY.medium;
-  const overdue = task.due_date && task.status !== 'done' && new Date(task.due_date) < new Date();
+  // Vencida = fecha límite ANTERIOR a hoy (una tarea que vence hoy no está vencida,
+  // igual que el criterio del backend: due_date < CURRENT_DATE).
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const overdue = task.due_date && task.status !== 'done' && new Date(task.due_date) < startOfToday;
 
   return (
     <div

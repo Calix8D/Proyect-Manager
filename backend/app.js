@@ -20,7 +20,8 @@ app.set('trust proxy', 1);
 // Cabeceras de seguridad (CSP, HSTS, X-Frame-Options, etc.).
 app.use(helmet());
 
-app.use(cors({ origin: corsOrigins }));
+// exposedHeaders: permite al frontend leer el nombre del Excel exportado.
+app.use(cors({ origin: corsOrigins, exposedHeaders: ['Content-Disposition'] }));
 app.use(express.json({ limit: '1mb' })); // límite de payload: evita DoS por cuerpos enormes
 
 // Limitador general de la API (defensa en profundidad).
@@ -37,8 +38,18 @@ app.use('/api/tasks',    taskRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/reports',  reportRoutes);
 
-// Manejador global de errores no capturados
+// Manejador global de errores no capturados.
+// Los errores 4xx del body-parser (JSON malformado, payload > 1mb) se responden
+// con su status real; todo lo demás es un 500 genérico que no filtra detalles.
 app.use((err, _req, res, _next) => {
+  const status = err.status || err.statusCode;
+  if (status && status >= 400 && status < 500) {
+    const message = err.type === 'entity.too.large'
+      ? 'El cuerpo de la petición es demasiado grande'
+      : 'Cuerpo de la petición inválido';
+    return res.status(status).json({ success: false, message });
+  }
+
   console.error(err);
   res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });

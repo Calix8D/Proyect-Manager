@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     print("🔌 Servidor detenido")
 
 
-app = FastAPI(title="Reports Service", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Proyecta — Reports Service", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

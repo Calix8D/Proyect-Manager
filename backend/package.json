@@ -1,7 +1,7 @@
 {
-  "name": "project-manager-backend",
+  "name": "proyecta-backend",
   "version": "1.0.0",
-  "description": "API REST del sistema de gestión de proyectos",
+  "description": "API REST de Proyecta — sistema de gestión de proyectos",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

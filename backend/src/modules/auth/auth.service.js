@@ -13,14 +13,23 @@ async function register({ name, email, password }) {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const result = await query(
-    `INSERT INTO users (name, email, password, role)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, name, email, role, created_at`,
-    [name, email, hashedPassword, role]
-  );
+  try {
+    const result = await query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role, created_at`,
+      [name, email, hashedPassword, role]
+    );
 
-  return result.recordset[0];
+    return result.recordset[0];
+  } catch (err) {
+    // 23505 = unique_violation: dos registros simultáneos con el mismo email
+    // pasan el chequeo previo, pero el UNIQUE de la BD atrapa al segundo.
+    if (err.code === '23505') {
+      throw { status: 409, message: 'El email ya está registrado' };
+    }
+    throw err;
+  }
 }
 
 async function login({ email, password }) {

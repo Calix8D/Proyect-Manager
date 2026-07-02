@@ -149,7 +149,13 @@ export default function ProjectDetail() {
     } catch { /* ignora */ }
   }
 
-  const toDateInput = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+  // Formatea en hora LOCAL (toISOString convierte a UTC y puede restar un día).
+  const toDateInput = (d) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  };
 
   async function openTask(task) {
     setSelectedTask(task);

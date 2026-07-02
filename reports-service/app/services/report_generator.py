@@ -78,8 +78,8 @@ def get_project_workload(project_id: int) -> list:
                     u.name,
                     u.email,
                     COUNT(ta.task_id)                                           AS total_assigned,
-                    SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END)         AS completed,
-                    SUM(CASE WHEN t.status != 'done' THEN 1 ELSE 0 END)        AS pending
+                    SUM(CASE WHEN ta.task_id IS NOT NULL AND t.status = 'done'  THEN 1 ELSE 0 END) AS completed,
+                    SUM(CASE WHEN ta.task_id IS NOT NULL AND t.status != 'done' THEN 1 ELSE 0 END) AS pending
                 FROM project_members pm
                 INNER JOIN users u ON u.id = pm.user_id
                 LEFT JOIN tasks t ON t.project_id = %s

@@ -1,5 +1,5 @@
 -- ============================================================
--- PROJECT MANAGER - Schema para Supabase (PostgreSQL)
+-- PROYECTA - Schema para Supabase (PostgreSQL)
 -- Pega este script en: Supabase → SQL Editor → New query
 -- ============================================================
 

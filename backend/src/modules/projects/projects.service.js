@@ -73,13 +73,14 @@ async function getProjectById(projectId, userId, userRole) {
 async function updateProject(projectId, data, userId, userRole) {
   await assertOwnerOrAdmin(projectId, userId, userRole);
 
+  // COALESCE: status/priority son NOT NULL; si no vienen se conserva el valor actual.
   const result = await query(
     `UPDATE projects
-     SET name = $1, description = $2, status = $3, priority = $4,
+     SET name = $1, description = $2, status = COALESCE($3, status), priority = COALESCE($4, priority),
          start_date = $5, end_date = $6
      WHERE id = $7
      RETURNING *`,
-    [data.name, data.description || null, data.status, data.priority, data.start_date || null, data.end_date || null, projectId]
+    [data.name, data.description || null, data.status || null, data.priority || null, data.start_date || null, data.end_date || null, projectId]
   );
 
   return result.recordset[0];
@@ -112,7 +113,13 @@ async function addMember(projectId, targetUserId, role = 'member', requesterId, 
 }
 
 async function removeMember(projectId, targetUserId, requesterId, requesterRole) {
-  await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
+  const ownerId = await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
+
+  // El dueño no puede salir de su propio proyecto — quedaría sin líder y sin acceso.
+  if (ownerId === targetUserId) {
+    throw { status: 400, message: 'No puedes quitar al dueño del proyecto' };
+  }
+
   await query(
     'DELETE FROM project_members WHERE project_id = $1 AND user_id = $2',
     [projectId, targetUserId]
@@ -120,11 +127,10 @@ async function removeMember(projectId, targetUserId, requesterId, requesterRole)
 }
 
 async function updateMemberRole(projectId, targetUserId, role, requesterId, requesterRole) {
-  await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
+  const ownerId = await assertOwnerOrAdmin(projectId, requesterId, requesterRole);
 
   // El dueño del proyecto debe permanecer como 'leader' — evita que se quede sin control.
-  const project = await query('SELECT owner_id FROM projects WHERE id = $1', [projectId]);
-  if (project.recordset[0]?.owner_id === targetUserId) {
+  if (ownerId === targetUserId) {
     throw { status: 400, message: 'No puedes cambiar el rol del dueño del proyecto' };
   }
 
@@ -142,17 +148,21 @@ async function updateMemberRole(projectId, targetUserId, role, requesterId, requ
   return result.recordset[0];
 }
 
+// Devuelve el owner_id del proyecto para que quien llame pueda hacer chequeos extra.
 async function assertOwnerOrAdmin(projectId, userId, userRole) {
   const result = await query('SELECT owner_id FROM projects WHERE id = $1', [projectId]);
 
   if (!result.recordset[0]) throw { status: 404, message: 'Proyecto no encontrado' };
 
-  const isOwner = result.recordset[0].owner_id === userId;
+  const ownerId = result.recordset[0].owner_id;
+  const isOwner = ownerId === userId;
   const isAdmin = userRole === 'admin';
 
   if (!isOwner && !isAdmin) {
     throw { status: 403, message: 'No tienes permiso para esta acción' };
   }
+
+  return ownerId;
 }
 
 module.exports = { createProject, listProjects, getProjectById, updateProject, deleteProject, addMember, removeMember, updateMemberRole };

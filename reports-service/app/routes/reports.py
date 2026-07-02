@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from app.auth import verify_token
@@ -17,6 +20,15 @@ def require_project_access(project_id: int, user: dict = Depends(verify_token)) 
     if not user_can_access_project(project_id, user.get("id"), user.get("role")):
         raise HTTPException(status_code=403, detail="No tienes acceso a este proyecto")
     return user
+
+
+def _safe_filename(name: str, project_id: int) -> str:
+    """Reduce el nombre del proyecto a ASCII seguro para la cabecera
+    Content-Disposition: acentos/ñ se transliteran y el resto de caracteres
+    (comillas, ';', saltos de línea...) se colapsa a '_'."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    ascii_name = re.sub(r"[^A-Za-z0-9_-]+", "_", ascii_name).strip("_")
+    return ascii_name or f"proyecto_{project_id}"
 
 
 @router.get("/project/{project_id}/summary")
@@ -58,11 +70,11 @@ def export_excel(project_id: int, _user: dict = Depends(require_project_access))
     """Descarga un .xlsx con todas las tareas del proyecto."""
     try:
         file_bytes, project_name = export_project_excel(project_id)
-        filename = f"reporte_{project_name.replace(' ', '_')}.xlsx"
+        filename = f"reporte_{_safe_filename(project_name, project_id)}.xlsx"
         return Response(
             content=file_bytes,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error al generar el Excel") from e
